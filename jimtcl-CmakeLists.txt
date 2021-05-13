@@ -1,0 +1,67 @@
+set(jimtcl_generated_sources binary.c glob.c nshelper.c oo.c stdlib.c tclcompat.c tree.c)
+
+foreach(jim_src ${jimtcl_generated_sources} initjimsh.c)
+    get_filename_component (src_base ${jim_src} NAME_WE)
+
+    add_custom_command(OUTPUT ${jim_src}
+            COMMAND ${CMAKE_CURRENT_BINARY_DIR}/jimsh0
+            ARGS ${CMAKE_CURRENT_SOURCE_DIR}/make-c-ext.tcl ${CMAKE_CURRENT_SOURCE_DIR}/${src_base}.tcl > ${jim_src}
+            MAIN_DEPENDENCY ${src_base}.tcl
+            DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/jimsh0)
+endforeach(jim_src)
+
+INCLUDE (CheckIncludeFiles)
+SET(JIM_VERSION 76)
+
+if (WIN32)
+    set(TCL_PLATFORM_OS "mingw")
+    set(TCL_PLATFORM_PATH_SEPARATOR ";")
+    set(TCL_PLATFORM_PLATFORM "windows")
+endif (WIN32)
+
+if (UNIX)
+    set(TCL_PLATFORM_OS "linux")
+    set(TCL_PLATFORM_PATH_SEPARATOR ":")
+    set(TCL_PLATFORM_PLATFORM "unix")
+endif (UNIX)
+
+
+CONFIGURE_FILE(${CMAKE_CURRENT_SOURCE_DIR}/jim-config.h.in ${CMAKE_CURRENT_BINARY_DIR}/jim-config.h)
+CONFIGURE_FILE(${CMAKE_CURRENT_SOURCE_DIR}/jimautoconf.h.in ${CMAKE_CURRENT_BINARY_DIR}/jimautoconf.h)
+
+add_custom_command(OUTPUT _load-static-exts.c
+        COMMAND ${CMAKE_CURRENT_BINARY_DIR}/jimsh0
+        ARGS ${CMAKE_CURRENT_SOURCE_DIR}/make-load-static-exts.tcl aio array clock eventloop exec file history load namespace pack package readdir regexp tclprefix binary glob nshelper oo stdlib tclcompat tree > _load-static-exts.c
+        MAIN_DEPENDENCY make-load-static-exts.tcl
+        DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/jimsh0)
+
+#include_directories(. ${CMAKE_CURRENT_BINARY_DIR})
+add_library(jim STATIC ${jimtcl_generated_sources}
+        jim-subcmd.c
+        jim-interactive.c
+        jim-format.c
+        jim.c
+        utf8.c
+        jimregexp.c
+        linenoise.c
+        jim-win32compat.c
+        jim-aio.c
+        jim-array.c
+        jim-clock.c
+        jim-eventloop.c
+        jim-exec.c
+        jim-file.c
+        jim-history.c
+        jim-load.c
+        jim-namespace.c
+        jim-pack.c
+        jim-package.c
+        jim-readdir.c
+        jim-regexp.c
+        jim-tclprefix.c
+        _load-static-exts.c)
+target_include_directories(jim PUBLIC . ${CMAKE_CURRENT_BINARY_DIR})
+
+add_executable(jimsh jimsh.c initjimsh.c)
+add_executable(jimsh0 autosetup/jimsh0.c)
+target_link_libraries(jimsh jim)
